@@ -216,7 +216,6 @@ def _get_gpu_info_macos() -> list:
     return gpus
 
 
-# To be tested on MacOS
 @mcp.tool(
     annotations=ToolAnnotations(
         readOnlyHint=True,
