@@ -1,18 +1,19 @@
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 import platform
 import psutil
 import subprocess
 import pynvml
-import wmi
 
 # Initialize FastMCP server
 mcp = FastMCP("system-info")
 
+
 @mcp.tool(
-    annotations={
-        "readOnlyHint": True,
-        "destructiveHint": False,
-    }
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+    )
 )
 def get_system_info() -> dict:
     """Retrieves basic hardware and operating system identification data.
@@ -33,11 +34,12 @@ def get_system_info() -> dict:
         "hostname": platform.node()
     }
 
+
 @mcp.tool(
-    annotations={
-        "readOnlyHint": True,
-        "destructiveHint": False,
-    }
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+    )
 )
 def get_cpu_info() -> dict:
     """Retrieves current CPU load, core counts, and frequency.
@@ -57,11 +59,12 @@ def get_cpu_info() -> dict:
         "frequency_mhz": psutil.cpu_freq().current if psutil.cpu_freq() else None
     }
 
+
 @mcp.tool(
-    annotations={
-        "readOnlyHint": True,
-        "destructiveHint": False,
-    }
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+    )
 )
 def get_mem_info() -> dict:
     """Retrieves system memory metrics expressed in bytes.
@@ -110,11 +113,12 @@ def get_mem_info() -> dict:
         "wired": getattr(mem, "wired", None)
     }
 
+
 @mcp.tool(
-    annotations={
-        "readOnlyHint": True,
-        "destructiveHint": False,
-    }
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+    )
 )
 def get_disk_info() -> dict:
     """Retrieves disk space usage and properties for all accessible partitions.
@@ -147,6 +151,7 @@ def get_disk_info() -> dict:
             continue
     return disks
 
+
 def _get_gpu_info_windows() -> list:
     gpus = []
 
@@ -165,6 +170,7 @@ def _get_gpu_info_windows() -> list:
         pass
 
     try:
+        import wmi
         w = wmi.WMI()
         for gpu in w.Win32_VideoController():
             if "nvidia" in (gpu.Name or "").lower():
@@ -176,8 +182,9 @@ def _get_gpu_info_windows() -> list:
             })
     except Exception:
         pass
-    
+
     return gpus
+
 
 def _get_gpu_info_linux() -> list:
     result = subprocess.run(
@@ -189,6 +196,7 @@ def _get_gpu_info_linux() -> list:
         if "VGA" in line or "3D" in line
     ]
     return gpus
+
 
 def _get_gpu_info_macos() -> list:
     result = subprocess.run(
@@ -207,12 +215,13 @@ def _get_gpu_info_macos() -> list:
             name, vram = None, None
     return gpus
 
-# To be tested on MacOS 
+
+# To be tested on MacOS
 @mcp.tool(
-    annotations={
-        "readOnlyHint": True,
-        "destructiveHint": False,
-    }
+    annotations=ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+    )
 )
 def get_gpu_info() -> dict:
     """Cross-platform wrapper that delegates GPU data collection to OS-specific handlers.
