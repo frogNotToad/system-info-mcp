@@ -26,13 +26,16 @@ def get_system_info() -> dict:
             - 'processor' (str): The vendor-specific CPU description string.
             - 'hostname' (str): The network name of the computer.
     """
-    return {
-        "os": platform.system(),
-        "version": platform.version(),
-        "machine": platform.machine(),
-        "processor": platform.processor(),
-        "hostname": platform.node()
-    }
+    try:
+        return {
+            "os": platform.system(),
+            "version": platform.version(),
+            "machine": platform.machine(),
+            "processor": platform.processor(),
+            "hostname": platform.node()
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @mcp.tool(
@@ -52,12 +55,21 @@ def get_cpu_info() -> dict:
             - 'frequency_mhz' (float or None): Current clock speed in MHz, 
               or None if unavailable.
     """
-    return {
-        "percents": psutil.cpu_percent(interval=1, percpu=True),
-        "cores_physical": psutil.cpu_count(logical=False),
-        "cores_logical": psutil.cpu_count(logical=True),
-        "frequency_mhz": psutil.cpu_freq().current if psutil.cpu_freq() else None
-    }
+    try:
+        try:
+            freq = psutil.cpu_freq()
+            frequency_mhz = freq.current if freq else None
+        except NotImplementedError:
+            frequency_mhz = None
+
+        return {
+            "percents": psutil.cpu_percent(interval=1, percpu=True),
+            "cores_physical": psutil.cpu_count(logical=False),
+            "cores_logical": psutil.cpu_count(logical=True),
+            "frequency_mhz": frequency_mhz
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @mcp.tool(
@@ -97,21 +109,24 @@ def get_mem_info() -> dict:
               RAM; It is never moved to disk. (returns None if not 
               available on the platform).
     """
-    mem = psutil.virtual_memory()
-    return {
-        "total": mem.total,
-        "available": mem.available,
-        "percent": mem.percent,
-        "used": mem.used,
-        "free": mem.free,
-        "active": getattr(mem, "active", None),
-        "inactive": getattr(mem, "inactive", None),
-        "buffers": getattr(mem, "buffers", None),
-        "cached": getattr(mem, "cached", None),
-        "shared": getattr(mem, "shared", None),
-        "slab": getattr(mem, "slab", None),
-        "wired": getattr(mem, "wired", None)
-    }
+    try:
+        mem = psutil.virtual_memory()
+        return {
+            "total": mem.total,
+            "available": mem.available,
+            "percent": mem.percent,
+            "used": mem.used,
+            "free": mem.free,
+            "active": getattr(mem, "active", None),
+            "inactive": getattr(mem, "inactive", None),
+            "buffers": getattr(mem, "buffers", None),
+            "cached": getattr(mem, "cached", None),
+            "shared": getattr(mem, "shared", None),
+            "slab": getattr(mem, "slab", None),
+            "wired": getattr(mem, "wired", None)
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @mcp.tool(
@@ -134,22 +149,25 @@ def get_disk_info() -> dict:
             - 'free' (int): Available storage space in bytes.
             - 'percent' (float): Percentage of storage capacity utilized.
     """
-    disks = {}
-    for part in psutil.disk_partitions():
-        try:
-            usage = psutil.disk_usage(part.mountpoint)
-            disks[part.device] = {
-                "mountpoint": part.mountpoint,
-                "fstype": part.fstype,
-                "opts": part.opts,
-                "total": usage.total,
-                "used": usage.used,
-                "free": usage.free,
-                "percent": usage.percent
-            }
-        except PermissionError:
-            continue
-    return disks
+    try:
+        disks = {}
+        for part in psutil.disk_partitions():
+            try:
+                usage = psutil.disk_usage(part.mountpoint)
+                disks[part.device] = {
+                    "mountpoint": part.mountpoint,
+                    "fstype": part.fstype,
+                    "opts": part.opts,
+                    "total": usage.total,
+                    "used": usage.used,
+                    "free": usage.free,
+                    "percent": usage.percent
+                }
+            except (PermissionError, OSError):
+                continue
+        return disks
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def _get_gpu_info_windows() -> list:
@@ -187,22 +205,28 @@ def _get_gpu_info_windows() -> list:
 
 
 def _get_gpu_info_linux() -> list:
-    result = subprocess.run(
-        ["lspci"], capture_output=True, text=True
-    )
-    gpus = [
-        {"name": line.split(":", 2)[-1].strip()}
-        for line in result.stdout.splitlines()
-        if "VGA" in line or "3D" in line
-    ]
-    return gpus
+    try:
+        result = subprocess.run(
+            ["lspci"], capture_output=True, text=True
+        )
+        return [
+            {"name": line.split(":", 2)[-1].strip()}
+            for line in result.stdout.splitlines()
+            if "VGA" in line or "3D" in line
+        ]
+    except FileNotFoundError:
+        return []
 
 
 def _get_gpu_info_macos() -> list:
-    result = subprocess.run(
-        ["system_profiler", "SPDisplaysDataType"],
-        capture_output=True, text=True
-    )
+    try:
+        result = subprocess.run(
+            ["system_profiler", "SPDisplaysDataType"],
+            capture_output=True, text=True
+        )
+    except FileNotFoundError:
+        return []
+
     gpus = []
     name, vram = None, None
     for line in result.stdout.splitlines():
